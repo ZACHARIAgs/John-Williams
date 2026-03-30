@@ -49,3 +49,8 @@ Currently, the game tracks the following scores:
 
 ## Disclaimer
 This project is for educational and personal use only. All rights to the music and film titles belong to their respective owners (Lucasfilm Ltd., Disney, etc.). Please support the artists by purchasing their music through official channels.
+
+## Gallery
+<img width="1211" height="1173" alt="image" src="https://github.com/user-attachments/assets/f35a415b-6325-4414-a60b-32d432549cce" />
+<img width="1183" height="1154" alt="image" src="https://github.com/user-attachments/assets/449d54ba-aa7b-4710-bd84-5e586c99aaee" />
+<img width="1147" height="1116" alt="image" src="https://github.com/user-attachments/assets/c72a27cf-dea6-4899-8530-fabc8bd88f9d" />
