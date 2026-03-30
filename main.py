@@ -69,11 +69,10 @@ class GuesserApp(tk.Tk):
         super().__init__()
         self.title("John Williams Movie Guesser")
         self.geometry("700x650")
-        self.configure(bg="#ffffff") # Light mode background
-        
+        self.configure(bg="#ffffff")
         style = ttk.Style(self)
         try:
-            style.theme_use('clam') # Clean look if available
+            style.theme_use('clam')
         except tk.TclError:
             pass
         
@@ -97,7 +96,6 @@ class GuesserApp(tk.Tk):
         for F in (GameFrame, ResultFrame):
             frame = F(self, self)
             self.frames[F] = frame
-            # Grid handles overlapping layout perfectly
             frame.grid(row=0, column=0, sticky="nsew")
             
         self.grid_rowconfigure(0, weight=1)
@@ -146,7 +144,7 @@ class GuesserApp(tk.Tk):
             self.current_movie = movie
             self.current_song = os.path.splitext(filename)[0]
             self.current_player = AudioPlayer(path)
-            self.frames[GameFrame].status_label.config(text="Clip ready! Press Play.")
+            self.frames[GameFrame].status_label.config(text="Press Play to hear the clip.")
 
     def play_clip(self):
         if self.current_player:
