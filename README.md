@@ -1,6 +1,6 @@
 # John Williams Movie Guesser
 
-A sleek, desktop-based trivia game designed to test your knowledge of the legendary film composer John Williams. The app plays a random 15-second snippet from his most iconic scores, and it’s up to you to identify the film.
+John Williams is a fantastic composer, and I love his work, but if you watch enough of his movies, you'll notice that they tend to sound the same. I built this game to test my and my friend's knowledge of his work, and it's been fun and pretty difficult! The game will play a clip from one of his soundtracks, and it's up to you to guess which movie it's from! Enjoy!
 
 ## Features
 * **Randomized Snippets:** Every round picks a random starting point in a track, ensuring the game stays challenging.
