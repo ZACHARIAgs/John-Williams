@@ -48,7 +48,7 @@ Currently, the game tracks the following scores:
 * **Indiana Jones:** Raiders, Temple of Doom, and Last Crusade.
 
 ## Disclaimer
-This project is for educational and personal use only. All rights to the music and film titles belong to their respective owners (Lucasfilm Ltd., Disney, etc.). Please support the artists by purchasing their music through official channels.
+This project is for educational and personal use only. All rights to the music and film titles belong to their respective owners (Lucasfilm Ltd., Disney, etc.). Please support the artists by purchasing their music through official channels (or search internet archive or download-sountracks.com)
 
 ## Gallery
 <img width="1211" height="1173" alt="image" src="https://github.com/user-attachments/assets/f35a415b-6325-4414-a60b-32d432549cce" />
