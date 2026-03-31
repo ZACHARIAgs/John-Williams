@@ -14,18 +14,6 @@ def get_short_path_name(long_name):
 
 CLIP_DURATION = 15  # Change this value to adjust the play clip length (in seconds)
 
-MOVIES = [
-    "A New Hope",
-    "The Empire Strikes Back",
-    "Return of the Jedi",
-    "The Phantom Menace",
-    "Attack of the Clones",
-    "Revenge of the Sith",
-    "The Force Awakens",
-    "Raiders of the Lost Ark",
-    "The Temple of Doom",
-    "The Last Crusade"
-]
 
 class AudioPlayer:
     def __init__(self, file_path):
@@ -64,15 +52,79 @@ class AudioPlayer:
         winmm.mciSendStringW(f'open "{self.file_path}" alias myaudio', None, 0, 0)
         winmm.mciSendStringW(f'play myaudio from {start_ms} to {self.length_ms}', None, 0, 0)
 
+
+class SettingsWindow(tk.Toplevel):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        self.title("Movie Settings")
+        self.geometry("450x550")
+        self.configure(bg="#ffffff")
+        
+        # Make modal
+        self.transient(parent)
+        self.grab_set()
+        
+        header = ttk.Label(self, text="Select Active Movies", style="Header.TLabel")
+        header.pack(pady=15)
+        
+        # Scrollable area for dynamically tracking movies
+        canvas = tk.Canvas(self, bg="#ffffff", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, style="TFrame")
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="top", fill="both", expand=True, padx=20)
+        scrollbar.pack(side="right", fill="y", in_=canvas)
+        
+        # Add checkboxes dynamically based on found folders
+        for movie in self.controller.all_movies:
+            var = self.controller.active_movies[movie]
+            chk = tk.Checkbutton(scrollable_frame, text=movie, variable=var, 
+                                 font=("Segoe UI", 12), bg="#ffffff", activebackground="#ffffff",
+                                 cursor="hand2")
+            chk.pack(anchor="w", pady=4)
+            
+        save_btn = tk.Button(self, text="Save & Close", font=("Segoe UI", 14, "bold"), 
+                              bg="#2ecc71", fg="white", activebackground="#27ae60", 
+                              activeforeground="white", relief="flat", cursor="hand2",
+                              command=self.close_window, padx=20, pady=10)
+        save_btn.pack(pady=20)
+        
+        # Track initial state to detect changes
+        self.initial_state = {m: var.get() for m, var in self.controller.active_movies.items()}
+        self.protocol("WM_DELETE_WINDOW", self.close_window)
+        
+    def close_window(self):
+        changed = False
+        for m, var in self.controller.active_movies.items():
+            if var.get() != self.initial_state[m]:
+                changed = True
+                break
+                
+        if changed:
+            self.controller.on_settings_altered()
+            
+        self.destroy()
+
+
 class GuesserApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("John Williams Movie Guesser")
-        self.geometry("700x650")
-        self.configure(bg="#ffffff")
+        self.geometry("700x700")
+        self.configure(bg="#ffffff") # Light mode background
+        
         style = ttk.Style(self)
         try:
-            style.theme_use('clam')
+            style.theme_use('clam') # Clean look if available
         except tk.TclError:
             pass
         
@@ -83,16 +135,21 @@ class GuesserApp(tk.Tk):
         style.configure("Result.TLabel", font=("Segoe UI", 36, "bold"))
         
         self.movies_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "movies")
-        
-        # Make sure directory exists just in case
         if not os.path.exists(self.movies_dir):
             os.makedirs(self.movies_dir)
-            for m in MOVIES:
-                os.makedirs(os.path.join(self.movies_dir, m), exist_ok=True)
+            
+        # Discover movies dynamically
+        self.all_movies = []
+        for item in os.listdir(self.movies_dir):
+            if os.path.isdir(os.path.join(self.movies_dir, item)):
+                self.all_movies.append(item)
+        self.all_movies.sort()
+        
+        # Track toggle state
+        self.active_movies = {m: tk.BooleanVar(self, value=True) for m in self.all_movies}
+        self.playlist = []
         
         self.frames = {}
-        
-        # Initialize Both Screens
         for F in (GameFrame, ResultFrame):
             frame = F(self, self)
             self.frames[F] = frame
@@ -102,8 +159,25 @@ class GuesserApp(tk.Tk):
         self.grid_columnconfigure(0, weight=1)
         
         self.current_movie = None
+        self.current_song = None
         self.current_player = None
         
+        self.load_new_clip()
+        self.show_frame(GameFrame)
+        
+    def open_settings(self):
+        SettingsWindow(self, self)
+        
+    def on_settings_altered(self):
+        # Refresh the grid on GameFrame
+        self.frames[GameFrame].rebuild_grid()
+        
+        # Empty the playlist
+        self.playlist = []
+        winmm.mciSendStringW('stop myaudio', None, 0, 0)
+        
+        # If the currently playing movie is no longer checked, immediately skip it
+        # (It's also safer to just reset the round entirely to cleanly reflect new settings)
         self.load_new_clip()
         self.show_frame(GameFrame)
         
@@ -114,12 +188,14 @@ class GuesserApp(tk.Tk):
     def rebuild_playlist(self):
         self.playlist = []
         if os.path.exists(self.movies_dir):
-            for m in MOVIES:
-                folder_path = os.path.join(self.movies_dir, m)
-                if os.path.exists(folder_path):
-                    files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.mp3', '.m4a', '.wav'))]
-                    for f in files:
-                        self.playlist.append((m, os.path.join(folder_path, f), f))
+            for m in self.all_movies:
+                # ONLY add checked movies
+                if self.active_movies[m].get():
+                    folder_path = os.path.join(self.movies_dir, m)
+                    if os.path.exists(folder_path):
+                        files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.mp3', '.m4a', '.wav'))]
+                        for f in files:
+                            self.playlist.append((m, os.path.join(folder_path, f), f))
         
         random.shuffle(self.playlist)
 
@@ -139,12 +215,12 @@ class GuesserApp(tk.Tk):
             self.current_movie = None
             self.current_song = None
             self.current_player = None
-            self.frames[GameFrame].status_label.config(text="No MP3 files found! Add some to the movies/ folder.")
+            self.frames[GameFrame].status_label.config(text="No valid clips found! Please check your Menu settings or add MP3s.")
         else:
             self.current_movie = movie
             self.current_song = os.path.splitext(filename)[0]
             self.current_player = AudioPlayer(path)
-            self.frames[GameFrame].status_label.config(text="Press Play to hear the clip.")
+            self.frames[GameFrame].status_label.config(text="Clip ready! Press Play.")
 
     def play_clip(self):
         if self.current_player:
@@ -175,6 +251,12 @@ class GameFrame(ttk.Frame):
         super().__init__(parent)
         self.controller = controller
         
+        # Menu button placed in top corner using absolute placement
+        self.menu_btn = tk.Button(self, text="⚙ Menu", font=("Segoe UI", 11),
+                                  bg="#f0f0f0", fg="#333", relief="ridge", cursor="hand2",
+                                  command=self.controller.open_settings)
+        self.menu_btn.place(x=15, y=15)
+        
         header = ttk.Label(self, text="John Williams Movie Guesser", style="Header.TLabel")
         header.pack(pady=(30, 5))
         
@@ -191,14 +273,25 @@ class GameFrame(ttk.Frame):
         instruction = ttk.Label(self, text="Guess the movie:", font=("Segoe UI", 12, "italic"))
         instruction.pack(pady=(10, 5))
         
-        grid_frame = ttk.Frame(self)
-        grid_frame.pack(pady=10)
+        # Container for dynamic movie buttons
+        self.grid_frame = ttk.Frame(self)
+        self.grid_frame.pack(pady=10)
         
-        for i, movie in enumerate(MOVIES):
+        self.rebuild_grid()
+        
+    def rebuild_grid(self):
+        # Destroy all old buttons
+        for widget in self.grid_frame.winfo_children():
+            widget.destroy()
+            
+        visible_movies = [m for m in self.controller.all_movies if self.controller.active_movies[m].get()]
+        
+        for i, movie in enumerate(visible_movies):
             row = i // 3
             col = i % 3
             
-            btn = tk.Button(grid_frame, text=movie, font=("Segoe UI", 11),
+            # Wrap text lightly with width, rely on grid to organize
+            btn = tk.Button(self.grid_frame, text=movie, font=("Segoe UI", 11),
                             bg="#f8f9fa", fg="#333", activebackground="#e2e6ea",
                             relief="ridge", width=22, height=2, cursor="hand2",
                             command=lambda m=movie: self.controller.make_guess(m))
